@@ -22,17 +22,23 @@ renderer.resize();
 
 // ===== 隊伍（2v2 坦克）=====
 const worms = [];
+let _wornIdSeq = 1;
 function spawnTeams() {
   worms.length = 0;
+  _wornIdSeq = 1;
   // 藍隊（左）
   for (let i = 0; i < 2; i++) {
-    const x = 42 + i * 30;
-    worms.push(new Worm(x, terrain.groundY(x), 'blue', '蓝' + (i + 1)));
+    const x = 42 + i * 34;
+    const w = new Worm(x, terrain.groundY(x), 'blue', '蓝' + (i + 1));
+    w.id = _wornIdSeq++;
+    worms.push(w);
   }
   // 紅隊（右）
   for (let i = 0; i < 2; i++) {
-    const x = W - 72 + i * 30;
-    worms.push(new Worm(x, terrain.groundY(x), 'red', '红' + (i + 1)));
+    const x = W - 76 + i * 34;
+    const w = new Worm(x, terrain.groundY(x), 'red', '红' + (i + 1));
+    w.id = _wornIdSeq++;
+    worms.push(w);
   }
 }
 
@@ -62,7 +68,14 @@ let lastTime = performance.now();
 function activeWorm() {
   const tw = worms.filter(w => w.team === state.turnTeam && w.alive);
   if (!tw.length) return null;
-  return tw[state.activeIdx % tw.length] || tw[0];
+  // 用 activeId 追蹤（避免 filter 順序變化導致跳錯車）
+  if (state.activeId != null) {
+    const found = tw.find(w => w.id === state.activeId);
+    if (found) return found;
+  }
+  // 預設揀第一部，並記住
+  state.activeId = tw[0].id;
+  return tw[0];
 }
 
 // 玩家而家可唔可以操作？（只可以喺自己回合 + 未結束）
@@ -93,6 +106,7 @@ function endTurn() {
   }
   state.turnTeam = state.turnTeam === 'blue' ? 'red' : 'blue';
   state.activeIdx = 0;
+  state.activeId = null;      // 重設：新回合自動揀第一部
   state.timeLeft = 30;
   state.phase = 'aim';
   state.projectile = null;
@@ -290,12 +304,61 @@ bindRepeat(btnDown, () => {
 // ◀▶ 移動坦克
 bindRepeat(btnLeft, () => {
   const w = activeWorm();
-  if (w && canPlayerAct()) { w.move(-1, terrain); updatePowerBar(); }
+  if (w && canPlayerAct()) { w.move(-1, terrain, worms); updatePowerBar(); }
 }, 60);
 bindRepeat(btnRight, () => {
   const w = activeWorm();
-  if (w && canPlayerAct()) { w.move(1, terrain); updatePowerBar(); }
+  if (w && canPlayerAct()) { w.move(1, terrain, worms); updatePowerBar(); }
 }, 60);
+
+// 跳躍（跨越前方坦克）
+const btnJump = document.getElementById('btnJump');
+if (btnJump) {
+  btnJump.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    const w = activeWorm();
+    if (w && canPlayerAct()) w.jump(phys, terrain);
+  });
+}
+
+// 切換坦克（點自己隊友坦克 → 切換控制）
+canvas.addEventListener('pointerdown', e => {
+  if (!canPlayerAct()) return;
+  const r = canvas.getBoundingClientRect();
+  const cx = (e.clientX - r.left) / r.width * W;
+  const cy = (e.clientY - r.top) / r.height * H;
+  const myTeam = worms.filter(w => w.team === HUMAN_TEAM && w.alive);
+  if (myTeam.length < 2) return;
+  // 揀最近嗰部（喺坦克範圍內）
+  let best = null, bestD = 28;
+  for (const t of myTeam) {
+    const d = Math.hypot(cx - t.x, cy - (t.y - 8));
+    if (d < bestD) { bestD = d; best = t; }
+  }
+  if (best) {
+    if (best.id !== state.activeId) {
+      state.activeId = best.id;
+      showMsg('切换到 ' + best.name, 800);
+      updateHud();
+    }
+  }
+});
+
+// 切換坦克鍵（快速輪替）
+const btnSwap = document.getElementById('btnSwap');
+if (btnSwap) {
+  btnSwap.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    if (!canPlayerAct()) return;
+    const myTeam = worms.filter(w => w.team === HUMAN_TEAM && w.alive);
+    if (myTeam.length < 2) return;
+    let idx = myTeam.findIndex(w => w.id === state.activeId);
+    idx = (idx + 1) % myTeam.length;
+    state.activeId = myTeam[idx].id;
+    showMsg('切换到 ' + myTeam[idx].name, 800);
+    updateHud();
+  });
+}
 
 // 換武器
 document.getElementById('btnWeapon').addEventListener('pointerdown', e => {
@@ -339,12 +402,27 @@ window.addEventListener('keydown', e => {
   if (!canPlayerAct()) return;
   const w = activeWorm();
   if (!w) return;
-  if (e.key === 'ArrowLeft') { w.move(-1, terrain); e.preventDefault(); }
-  if (e.key === 'ArrowRight') { w.move(1, terrain); e.preventDefault(); }
+  if (e.key === 'ArrowLeft') { w.move(-1, terrain, worms); e.preventDefault(); }
+  if (e.key === 'ArrowRight') { w.move(1, terrain, worms); e.preventDefault(); }
   if (e.key === 'ArrowUp') { w.angle -= state.angleStep; e.preventDefault(); }
   if (e.key === 'ArrowDown') { w.angle += state.angleStep; e.preventDefault(); }
-  if (e.key === 'Tab') { state.weaponIdx = (state.weaponIdx + 1) % WEAPON_ORDER.length; updateHud(); e.preventDefault(); }
-  if (e.key === ' ') { e.preventDefault(); fire(state.chargePower); }
+  if (e.key === ' ') { e.preventDefault(); w.jump(phys, terrain); }
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const myTeam = worms.filter(x => x.team === HUMAN_TEAM && x.alive);
+    if (myTeam.length > 1) {
+      let idx = myTeam.findIndex(x => x.id === state.activeId);
+      idx = (idx + 1) % myTeam.length;
+      state.activeId = myTeam[idx].id;
+      showMsg('切换到 ' + myTeam[idx].name, 800);
+      updateHud();
+    }
+  }
+  if (e.key === 'q' || e.key === 'Q') {
+    state.weaponIdx = (state.weaponIdx + 1) % WEAPON_ORDER.length;
+    updateHud();
+  }
+  if (e.key === 'Enter') { e.preventDefault(); fire(state.chargePower); }
 });
 
 // ===== HUD =====
@@ -361,8 +439,23 @@ function updateHud() {
   const ammo = state.ammo[wp.id];
   const ammoTxt = (ammo === Infinity) ? '∞' : ammo;
   document.getElementById('btnWeapon').textContent = `${wp.icon} ${wp.name} ${ammoTxt}`;
+  const act = activeWorm();
   document.getElementById('wind').textContent = phys.windText() + '   |   '
-    + (state.turnTeam === 'blue' ? '🔵 你的回合' : '🔴 电脑回合');
+    + (state.turnTeam === 'blue'
+        ? '🔵 你：' + (act ? act.name : '-')
+        : '🔴 电脑回合');
+  // 換車鍵：顯示下一部
+  const myTeam = worms.filter(w => w.team === HUMAN_TEAM && w.alive);
+  const swapBtn = document.getElementById('btnSwap');
+  if (swapBtn) {
+    if (myTeam.length > 1) {
+      const ci = myTeam.findIndex(w => w.id === state.activeId);
+      const next = myTeam[(ci + 1) % myTeam.length];
+      swapBtn.textContent = '🔄 换车 → ' + next.name;
+    } else {
+      swapBtn.textContent = '🔄 换车';
+    }
+  }
   updatePowerBar();
 }
 
