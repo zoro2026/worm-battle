@@ -1,36 +1,42 @@
-// 武器定義
+// 武器定義 v2 — 炮彈 / 散彈 / 火箭
 export const WEAPONS = {
-  rocket: {
-    id: 'rocket',
-    name: '🚀 火箭筒',
-    icon: '🚀',
+  shell: {
+    id: 'shell',
+    name: '炮彈',
+    icon: '💥',
     explodeRadius: 30,
     damage: 38,
-    speed: 8.2,
+    speed: 8.4,
     fuse: 0,
-    desc: '直線飛行，撞地爆炸',
-  },
-  grenade: {
-    id: 'grenade',
-    name: '💣 手榴彈',
-    icon: '💣',
-    explodeRadius: 34,
-    damage: 42,
-    speed: 7.0,
-    fuse: 78,
-    desc: '彈跳，引信到期爆炸',
+    ammo: Infinity,
+    desc: '標準砲彈，撞地爆炸',
   },
   shotgun: {
     id: 'shotgun',
-    name: '🔫 散彈槍',
+    name: '散彈',
     icon: '🔫',
     explodeRadius: 0,
-    damage: 25,
-    speed: 13,
+    damage: 22,
+    speed: 14,
     fuse: 0,
     hitscan: true,
-    desc: '直射，無地形破壞',
+    pellets: 5,
+    spread: 0.18,
+    ammo: Infinity,
+    desc: '多重散彈，直射無破壞',
+  },
+  rocket: {
+    id: 'rocket',
+    name: '火箭',
+    icon: '🚀',
+    explodeRadius: 42,
+    damage: 52,
+    speed: 6.6,
+    fuse: 0,
+    thrust: true,       // 飛行中加速
+    ammo: 3,
+    desc: '高爆火箭，大範圍破壞',
   },
 };
 
-export const WEAPON_ORDER = ['rocket', 'grenade', 'shotgun'];
+export const WEAPON_ORDER = ['shell', 'shotgun', 'rocket'];
