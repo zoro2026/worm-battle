@@ -55,6 +55,10 @@ const state = {
   powerStep: 0.05,
 };
 
+// 計時器累加器（必須喺 endTurn 之前聲明，否則 TDZ 錯誤）
+let timerAcc = 0;
+let lastTime = performance.now();
+
 function activeWorm() {
   const tw = worms.filter(w => w.team === state.turnTeam && w.alive);
   if (!tw.length) return null;
@@ -94,6 +98,7 @@ function endTurn() {
   state.projectile = null;
   state.charging = false;
   state.chargePower = 0.7;
+  timerAcc = 0;          // ← 關鍵修正：重置計時累加器，避免立即再觸發 endTurn
   phys.randomWind();
   ai.reset();
   // AI 回合：開始思考
@@ -356,13 +361,12 @@ function updateHud() {
   const ammo = state.ammo[wp.id];
   const ammoTxt = (ammo === Infinity) ? '∞' : ammo;
   document.getElementById('btnWeapon').textContent = `${wp.icon} ${wp.name} ${ammoTxt}`;
-  document.getElementById('wind').textContent = phys.windText() + '   |   ' + (state.turnTeam === 'blue' ? '🔵 蓝队回合' : '🔴 红队回合');
+  document.getElementById('wind').textContent = phys.windText() + '   |   '
+    + (state.turnTeam === 'blue' ? '🔵 你的回合' : '🔴 电脑回合');
   updatePowerBar();
 }
 
 // ===== 主循環 =====
-let lastTime = performance.now();
-let timerAcc = 0;
 function loop(now) {
   const dt = Math.min(50, now - lastTime);
   lastTime = now;
@@ -395,15 +399,20 @@ function loop(now) {
         if (ai.plan) shooter.angle = ai.plan.angle;  // 砲塔先轉向目標
       }
       // 思考完 → 開火（必須確認仍係 aim 階段，避免 double endTurn）
-      if (ai.plan && state.phase === 'aim'
-          && now >= (state.aiFireAt || (state.aiFireAt = now + 700 + Math.random() * 400))) {
-        const p = ai.plan.power;
-        state.aiPlanMade = false;
-        ai.plan = null;
-        state.aiFireAt = 0;
-        state.charging = false;
-        state._aiFired = true;     // 標記：AI 已出手，等結算
-        fire(p);
+      // 節奏放慢：先顯示「電腦瞄準中」，再開火，等玩家睇清楚
+      if (ai.plan && state.phase === 'aim') {
+        if (!state.aiFireAt) {
+          state.aiFireAt = now + 1100 + Math.random() * 500;   // 瞄準展示 1.1~1.6 秒
+          showMsg('🔴 电脑瞄准中…', 1000);
+        } else if (now >= state.aiFireAt) {
+          const p = ai.plan.power;
+          state.aiPlanMade = false;
+          ai.plan = null;
+          state.aiFireAt = 0;
+          state.charging = false;
+          showMsg('🔴 电脑开火！', 1200);
+          fire(p);
+        }
       }
     }
   } else {
@@ -487,4 +496,4 @@ async function boot() {
 }
 boot();
 
-window.__game = { state, worms, terrain, phys, fire, endTurn, renderer };
+window.__game = { state, worms, terrain, phys, fire, endTurn, renderer, ai, HUMAN_TEAM, AI_TEAM, canPlayerAct, isAiTurn };
