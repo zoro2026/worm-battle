@@ -4,9 +4,15 @@ import { Worm } from './worm.js';
 import { Renderer } from './renderer.js';
 import { Assets } from './assets.js';
 import { WEAPONS, WEAPON_ORDER } from './weapons.js';
+import { AI } from './ai.js';
 
 // ===== 世界尺寸 =====
 const W = 480, H = 270;
+
+// ===== 玩家控制邊：blue = 你，red = 電腦 =====
+const HUMAN_TEAM = 'blue';
+const AI_TEAM = 'red';
+const ai = new AI('normal');
 
 const canvas = document.getElementById('game');
 const terrain = new Terrain(W, H, Math.floor(Math.random() * 99999));
@@ -55,6 +61,17 @@ function activeWorm() {
   return tw[state.activeIdx % tw.length] || tw[0];
 }
 
+// 玩家而家可唔可以操作？（只可以喺自己回合 + 未結束）
+function canPlayerAct() {
+  return state.started && state.phase === 'aim' && !state.winner
+      && state.turnTeam === HUMAN_TEAM;
+}
+
+function isAiTurn() {
+  return state.started && state.phase === 'aim' && !state.winner
+      && state.turnTeam === AI_TEAM;
+}
+
 function currentWeapon() {
   return WEAPONS[WEAPON_ORDER[state.weaponIdx]];
 }
@@ -78,6 +95,14 @@ function endTurn() {
   state.charging = false;
   state.chargePower = 0.7;
   phys.randomWind();
+  ai.reset();
+  // AI 回合：開始思考
+  if (state.turnTeam === AI_TEAM) {
+    state.aiThinkAt = performance.now() + 650;
+    showMsg('🔴 电脑思考中…', 900);
+  } else {
+    showMsg('🔵 你的回合', 900);
+  }
   updateHud();
 }
 
@@ -250,27 +275,27 @@ const btnRight = document.getElementById('btnRight');
 // ▲▼ 調砲管角度（長按微調）
 bindRepeat(btnUp, () => {
   const w = activeWorm();
-  if (w && state.phase === 'aim') w.angle -= state.angleStep;
+  if (w && canPlayerAct()) w.angle -= state.angleStep;
 }, 55);
 bindRepeat(btnDown, () => {
   const w = activeWorm();
-  if (w && state.phase === 'aim') w.angle += state.angleStep;
+  if (w && canPlayerAct()) w.angle += state.angleStep;
 }, 55);
 
 // ◀▶ 移動坦克
 bindRepeat(btnLeft, () => {
   const w = activeWorm();
-  if (w && state.phase === 'aim') { w.move(-1, terrain); updatePowerBar(); }
+  if (w && canPlayerAct()) { w.move(-1, terrain); updatePowerBar(); }
 }, 60);
 bindRepeat(btnRight, () => {
   const w = activeWorm();
-  if (w && state.phase === 'aim') { w.move(1, terrain); updatePowerBar(); }
+  if (w && canPlayerAct()) { w.move(1, terrain); updatePowerBar(); }
 }, 60);
 
 // 換武器
 document.getElementById('btnWeapon').addEventListener('pointerdown', e => {
   e.preventDefault();
-  if (state.phase !== 'aim') return;
+  if (!canPlayerAct()) return;
   state.weaponIdx = (state.weaponIdx + 1) % WEAPON_ORDER.length;
   updateHud();
   showMsg(currentWeapon().desc, 900);
@@ -285,7 +310,7 @@ function updatePowerBar() {
 }
 fireBtn.addEventListener('pointerdown', e => {
   e.preventDefault();
-  if (state.phase !== 'aim' || !state.started) return;
+  if (!canPlayerAct()) return;
   state.charging = true;
   state.chargeStart = Date.now();
   fireBtn.textContent = '蓄力';
@@ -306,8 +331,9 @@ fireBtn.addEventListener('contextmenu', e => e.preventDefault());
 
 // ===== 鍵盤（電腦）=====
 window.addEventListener('keydown', e => {
+  if (!canPlayerAct()) return;
   const w = activeWorm();
-  if (!w || state.phase !== 'aim') return;
+  if (!w) return;
   if (e.key === 'ArrowLeft') { w.move(-1, terrain); e.preventDefault(); }
   if (e.key === 'ArrowRight') { w.move(1, terrain); e.preventDefault(); }
   if (e.key === 'ArrowUp') { w.angle -= state.angleStep; e.preventDefault(); }
@@ -347,6 +373,45 @@ function loop(now) {
   // 重力
   for (const w of worms) w.applyGravity(phys, terrain);
 
+  // ===== AI 回合處理 =====
+  if (isAiTurn()) {
+    const shooter = activeWorm();
+    const enemies = worms.filter(w => w.team === HUMAN_TEAM);
+    const now = performance.now();
+    if (shooter) {
+      // 第一次進入：揀武器 + 開始思考
+      if (!ai.plan && !state.aiPlanMade) {
+        // AI 揀武器：距離遠/血多 → 火箭；近 → 散彈；預設炮彈
+        const tgt = enemies.find(e => e.alive);
+        if (tgt) {
+          const d = Math.abs(tgt.x - shooter.x);
+          if (d < 130 && state.ammo.shotgun > 0) state.weaponIdx = WEAPON_ORDER.indexOf('shotgun');
+          else if (d > 240 && state.ammo.rocket > 0 && Math.random() < 0.55) state.weaponIdx = WEAPON_ORDER.indexOf('rocket');
+          else state.weaponIdx = WEAPON_ORDER.indexOf('shell');
+          updateHud();
+        }
+        ai.plan = ai.planShot(shooter, enemies, phys, terrain, currentWeapon());
+        state.aiPlanMade = true;
+        if (ai.plan) shooter.angle = ai.plan.angle;  // 砲塔先轉向目標
+      }
+      // 思考完 → 開火（必須確認仍係 aim 階段，避免 double endTurn）
+      if (ai.plan && state.phase === 'aim'
+          && now >= (state.aiFireAt || (state.aiFireAt = now + 700 + Math.random() * 400))) {
+        const p = ai.plan.power;
+        state.aiPlanMade = false;
+        ai.plan = null;
+        state.aiFireAt = 0;
+        state.charging = false;
+        state._aiFired = true;     // 標記：AI 已出手，等結算
+        fire(p);
+      }
+    }
+  } else {
+    state.aiPlanMade = false;
+    state.aiFireAt = 0;
+    state._aiFired = false;
+  }
+
   // 拋體
   if (state.projectile) {
     const ev = state.projectile.update(phys, terrain);
@@ -373,8 +438,8 @@ function loop(now) {
     if (p.life <= 0) state.particles.splice(i, 1);
   }
 
-  // 計時
-  if (state.phase === 'aim' && !state.winner) {
+  // 計時（只計玩家回合）
+  if (state.phase === 'aim' && !state.winner && state.turnTeam === HUMAN_TEAM) {
     timerAcc += dt;
     if (timerAcc >= 1000) {
       timerAcc -= 1000;
