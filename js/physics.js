@@ -31,6 +31,7 @@ export class Projectile {
     this.explodeRadius = opts.explodeRadius ?? 26;
     this.explodeDamage = opts.explodeDamage ?? 34;
     this.fuse = opts.fuse ?? 0;      // >0 = 手榴彈引信
+    this.thrust = opts.thrust ?? false;  // 火箭：飛行中加速
     this.age = 0;
     this.dead = false;
     this.trail = [];
@@ -44,6 +45,12 @@ export class Projectile {
       return { explode: true, x: this.x, y: this.y };
     }
     this.vy += phys.gravity;
+    // 火箭推進：沿當前飛行方向持續加速（對抗重力）
+    if (this.thrust) {
+      const sp = Math.hypot(this.vx, this.vy) || 1;
+      this.vx += (this.vx / sp) * 0.16;
+      this.vy += (this.vy / sp) * 0.16;
+    }
     this.vx += phys.wind * phys.windAccel * 10;
     this.x += this.vx;
     this.y += this.vy;
