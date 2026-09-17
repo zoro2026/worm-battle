@@ -3,40 +3,105 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>虫虫大作战</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>轰 炸 坦 克</title>
 <style>
-  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-  html,body { width:100%; height:100%; overflow:hidden; background:#0d0d1a;
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent;
+      -webkit-user-select:none; user-select:none; }
+  html,body { width:100%; height:100%; overflow:hidden; background:#000;
     font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; }
-  #game { display:block; width:100%; height:100%; touch-action:none; }
-  #hud { position:fixed; top:0; left:0; right:0; padding:8px 12px;
+  #game { display:block; width:100%; height:100%; touch-action:none;
+    image-rendering:pixelated; image-rendering:-moz-crisp-edges; }
+
+  /* ===== HUD ===== */
+  #hud { position:fixed; top:0; left:0; right:0; padding:6px 10px;
     display:flex; justify-content:space-between; align-items:flex-start;
-    pointer-events:none; color:#fff; font-size:13px; text-shadow:1px 1px 0 #000; }
-  .team-box { background:rgba(0,0,0,.45); border-radius:6px; padding:5px 9px; }
+    pointer-events:none; color:#fff; font-size:12px;
+    text-shadow:1px 1px 0 #000, -1px -1px 0 #000; }
+  .team-box { background:rgba(0,0,0,.5); border-radius:5px; padding:4px 8px;
+    border:1px solid rgba(255,255,255,.2); }
   .team-box.blue { border-left:3px solid #4a9eff; }
   .team-box.red  { border-left:3px solid #ff4a4a; }
-  .hpbar { width:78px; height:5px; background:#333; border-radius:3px; margin-top:3px; overflow:hidden; }
-  .hpfill { height:100%; transition:width .3s; }
-  #wind { position:fixed; top:52px; left:50%; transform:translateX(-50%);
-    background:rgba(0,0,0,.5); color:#fff; padding:4px 14px; border-radius:14px;
-    font-size:12px; pointer-events:none; text-shadow:1px 1px 0 #000; }
-  #timer { position:fixed; top:8px; left:50%; transform:translateX(-50%);
-    color:#ffd24a; font-size:26px; font-weight:700; pointer-events:none;
+  .hpbar { width:70px; height:5px; background:#222; border-radius:2px; margin-top:3px; overflow:hidden; }
+  .hpfill { height:100%; transition:width .25s; }
+  #wind { position:fixed; top:46px; left:50%; transform:translateX(-50%);
+    background:rgba(0,0,0,.55); color:#fff; padding:3px 12px; border-radius:12px;
+    font-size:11px; pointer-events:none; text-shadow:1px 1px 0 #000;
+    border:1px solid rgba(255,255,255,.15); }
+  #timer { position:fixed; top:6px; left:50%; transform:translateX(-50%);
+    color:#ffd24a; font-size:24px; font-weight:800; pointer-events:none;
     text-shadow:2px 2px 0 #000; }
-  #controls { position:fixed; bottom:0; left:0; right:0; padding:12px 14px 20px;
-    display:flex; gap:10px; align-items:center; background:linear-gradient(transparent,rgba(0,0,0,.75)); }
-  .btn { -webkit-user-select:none; user-select:none; cursor:pointer;
-    background:rgba(255,255,255,.13); border:2px solid rgba(255,255,255,.28);
-    color:#fff; border-radius:10px; padding:11px 14px; font-size:14px; font-weight:600;
-    text-align:center; flex:1; transition:background .12s; }
-  .btn:active { background:rgba(255,255,255,.3); }
-  .btn.fire { background:rgba(255,80,60,.75); border-color:#ff8a6a; flex:1.5; font-size:16px; }
-  .btn.sel  { background:rgba(74,158,255,.6); border-color:#8cc4ff; }
-  #msg { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
-    color:#fff; font-size:22px; font-weight:700; text-align:center;
-    text-shadow:2px 2px 4px #000; pointer-events:none; opacity:0; transition:opacity .3s;
-    line-height:1.5; }
+
+  /* ===== 虛擬鍵盤 ===== */
+  #pad { position:fixed; bottom:0; left:0; right:0; height:158px;
+    display:flex; justify-content:space-between; align-items:flex-end;
+    padding:0 10px 12px; pointer-events:none;
+    background:linear-gradient(transparent, rgba(0,0,0,.55) 60%); }
+
+  .cluster { pointer-events:auto; display:flex; gap:8px; align-items:flex-end; }
+
+  /* 十字鍵（左） */
+  .dpad { position:relative; width:132px; height:132px; }
+  .dpad .key { position:absolute; width:44px; height:44px; border-radius:9px;
+    background:rgba(30,40,60,.82); border:2px solid rgba(180,210,255,.42);
+    color:#fff; font-size:17px; font-weight:700; display:flex;
+    align-items:center; justify-content:center; box-shadow:0 2px 0 rgba(0,0,0,.5); }
+  .dpad .key:active, .key.held { background:rgba(90,140,220,.95);
+    border-color:#bcd8ff; transform:translateY(1px); box-shadow:none; }
+  .k-up    { left:44px; top:0; }
+  .k-down  { left:44px; top:88px; }
+  .k-left  { left:0;   top:44px; }
+  .k-right { left:88px; top:44px; }
+
+  /* 開火鍵（右） */
+  .action { display:flex; flex-direction:column; gap:8px; align-items:flex-end; }
+  .btn-fire { width:88px; height:88px; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #ff8a5a, #d42a1a 70%);
+    border:3px solid #ffb08a; color:#fff; font-size:15px; font-weight:800;
+    display:flex; align-items:center; justify-content:center;
+    text-shadow:1px 1px 2px rgba(0,0,0,.7); pointer-events:auto;
+    box-shadow:0 4px 0 #7a1008, 0 0 14px rgba(255,80,40,.5); }
+  .btn-fire:active { transform:translateY(3px); box-shadow:0 1px 0 #7a1008; }
+
+  /* 換武器鍵 */
+  .btn-weapon { min-width:96px; padding:9px 10px; border-radius:8px;
+    background:rgba(30,50,40,.92); border:2px solid rgba(140,255,180,.45);
+    color:#eaffef; font-size:12px; font-weight:700; pointer-events:auto;
+    text-align:center; box-shadow:0 2px 0 rgba(0,0,0,.5); }
+  .btn-weapon:active { transform:translateY(1px); box-shadow:none;
+    background:rgba(60,140,90,.95); }
+
+  /* 力度條 */
+  #powerwrap { position:fixed; bottom:174px; right:14px;
+    width:150px; pointer-events:none; }
+  #powerbar { height:10px; background:rgba(0,0,0,.6); border-radius:5px;
+    overflow:hidden; border:1px solid rgba(255,255,255,.3); }
+  #powerfill { height:100%; width:70%;
+    background:linear-gradient(90deg,#5ce65c,#ffd24a,#ff5a4a);
+    transition:width .06s linear; }
+
+  /* 訊息 */
+  #msg { position:fixed; top:46%; left:50%; transform:translate(-50%,-50%);
+    color:#fff; font-size:20px; font-weight:800; text-align:center;
+    text-shadow:2px 2px 5px #000, 0 0 22px rgba(255,200,80,.6);
+    pointer-events:none; opacity:0; transition:opacity .3s; line-height:1.5; }
   #msg.show { opacity:1; }
+
+  /* 開始畫面 */
+  #start { position:fixed; inset:0; background:rgba(0,0,0,.86);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    color:#fff; text-align:center; padding:24px; z-index:50; }
+  #start h1 { font-size:30px; letter-spacing:7px; margin-bottom:6px;
+    color:#ffd24a; text-shadow:0 0 18px rgba(255,180,60,.65); }
+  #start .sub { font-size:12px; opacity:.62; margin-bottom:22px; letter-spacing:1px; }
+  #start .tips { font-size:13px; line-height:2; opacity:.9; margin-bottom:26px;
+    background:rgba(255,255,255,.07); padding:14px 22px; border-radius:10px;
+    border:1px solid rgba(255,255,255,.13); }
+  #startBtn { padding:14px 46px; font-size:18px; font-weight:800; border:none;
+    border-radius:30px; background:linear-gradient(#ffb44a,#e07810); color:#3a1a00;
+    box-shadow:0 4px 0 #8a4400; cursor:pointer; letter-spacing:3px; }
+  #startBtn:active { transform:translateY(3px); box-shadow:0 1px 0 #8a4400; }
+  #start .credit { position:absolute; bottom:14px; font-size:10px; opacity:.42; }
 </style>
 </head>
 <body>
@@ -44,27 +109,50 @@
 
 <div id="hud">
   <div class="team-box blue">
-    <div>🔵 蓝队 <span id="blueAlive">2</span>虫</div>
+    <div>🔵 蓝队 <span id="blueAlive">2</span> 辆</div>
     <div class="hpbar"><div class="hpfill" id="blueHp" style="width:100%;background:#4a9eff"></div></div>
   </div>
   <div class="team-box red">
-    <div>🔴 红队 <span id="redAlive">2</span>虫</div>
+    <div>🔴 红队 <span id="redAlive">2</span> 辆</div>
     <div class="hpbar"><div class="hpfill" id="redHp" style="width:100%;background:#ff4a4a"></div></div>
   </div>
 </div>
 
 <div id="timer">30</div>
-<div id="wind">风: → 0</div>
-<div id="msg"></div>
+<div id="wind">风: — 0</div>
 
-<div id="controls">
-  <div class="btn" id="btnLeft">◀</div>
-  <div class="btn" id="btnJump">跳</div>
-  <div class="btn" id="btnRight">▶</div>
-  <div class="btn" id="btnWeapon">🚀 火箭筒</div>
-  <div class="btn fire" id="btnFire">按住蓄力</div>
+<div id="powerwrap"><div id="powerbar"><div id="powerfill"></div></div></div>
+
+<div id="pad">
+  <div class="cluster">
+    <div class="dpad">
+      <div class="key k-up"    id="btnUp">▲</div>
+      <div class="key k-left"  id="btnLeft">◀</div>
+      <div class="key k-right" id="btnRight">▶</div>
+      <div class="key k-down"  id="btnDown">▼</div>
+    </div>
+    <div class="btn-weapon" id="btnWeapon">💥 炮弹</div>
+  </div>
+  <div class="action">
+    <div class="btn-fire" id="btnFire">开火</div>
+  </div>
 </div>
 
-<script type="module" src="./js/main.js"></script>
+<div id="msg"></div>
+
+<div id="start">
+  <h1>轰 炸 坦 克</h1>
+  <div class="sub">TANK BATTLE · 回合制炮击对战</div>
+  <div class="tips">
+    ◀ ▶ 左右移动<br>
+    ▲ ▼ 调整炮管角度<br>
+    💥 按住开火（蓄力）<br>
+    🔫 切换：炮弹 / 散弹 / 火箭
+  </div>
+  <button id="startBtn">开 始 战 斗</button>
+  <div class="credit">素材 CC0 · OpenGameArt</div>
+</div>
+
+<script type="module" src="js/main.js"></script>
 </body>
 </html>
