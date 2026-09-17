@@ -33,22 +33,31 @@ export class Worm {
     if (this.y > terrain.h + 60) this.kill();
   }
 
-  move(dir, terrain) {
-    if (!this.alive || !this.onGround) return;
+  // dir: -1 / +1。others = 其他坦克（用嚟防止穿模）
+  move(dir, terrain, others = []) {
+    if (!this.alive || !this.onGround) return false;
     const step = 1.8 * dir;
     const nx = this.x + step;
     const gy = terrain.groundY(nx);
     const gyNow = terrain.groundY(this.x);
-    if (Math.abs(gy - gyNow) < 11) {
-      this.x = nx; this.y = gy;
-      this.facing = dir > 0 ? 1 : -1;
+    // 坡度限制：太斜行唔到
+    if (Math.abs(gy - gyNow) >= 11) return false;
+    // 防穿模：唔可以行入其他坦克嘅車身（闊度 30，留 4px 邊距）
+    for (const o of others) {
+      if (o === this || !o.alive) continue;
+      if (Math.abs(nx - o.x) < 26) return false;   // 撞到，唔行
     }
+    this.x = nx;
+    this.y = gy;
+    this.facing = dir > 0 ? 1 : -1;
+    return true;
   }
 
+  // 跳躍（可以跳過前方坦克）
   jump(phys, terrain) {
     if (!this.alive || !this.onGround) return;
-    this.vy = -3.6;
-    this.vx = this.facing * 1.8;
+    this.vy = -3.8;
+    this.vx = this.facing * 2.2;
     this.onGround = false;
   }
 
