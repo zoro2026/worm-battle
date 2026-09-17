@@ -71,6 +71,14 @@
   .btn-weapon:active { transform:translateY(1px); box-shadow:none;
     background:rgba(60,140,90,.95); }
 
+  /* 小按鈕（換車 / 跳躍） */
+  .btn-mini { min-width:96px; padding:7px 8px; border-radius:7px;
+    background:rgba(40,45,70,.92); border:2px solid rgba(150,180,255,.4);
+    color:#e8eeff; font-size:11px; font-weight:700; pointer-events:auto;
+    text-align:center; box-shadow:0 2px 0 rgba(0,0,0,.5); }
+  .btn-mini:active { transform:translateY(1px); box-shadow:none;
+    background:rgba(80,110,190,.95); }
+
   /* 力度條 */
   #powerwrap { position:fixed; bottom:174px; right:14px;
     width:150px; pointer-events:none; }
@@ -131,7 +139,11 @@
       <div class="key k-right" id="btnRight">▶</div>
       <div class="key k-down"  id="btnDown">▼</div>
     </div>
-    <div class="btn-weapon" id="btnWeapon">💥 炮弹</div>
+    <div style="display:flex;flex-direction:column;gap:7px;">
+      <div class="btn-weapon" id="btnWeapon">💥 炮弹</div>
+      <div class="btn-mini" id="btnSwap">🔄 换车</div>
+      <div class="btn-mini" id="btnJump">⤴ 跳跃</div>
+    </div>
   </div>
   <div class="action">
     <div class="btn-fire" id="btnFire">开火</div>
