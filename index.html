@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>虫虫大作战</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { width:100%; height:100%; overflow:hidden; background:#0d0d1a;
+    font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; }
+  #game { display:block; width:100%; height:100%; touch-action:none; }
+  #hud { position:fixed; top:0; left:0; right:0; padding:8px 12px;
+    display:flex; justify-content:space-between; align-items:flex-start;
+    pointer-events:none; color:#fff; font-size:13px; text-shadow:1px 1px 0 #000; }
+  .team-box { background:rgba(0,0,0,.45); border-radius:6px; padding:5px 9px; }
+  .team-box.blue { border-left:3px solid #4a9eff; }
+  .team-box.red  { border-left:3px solid #ff4a4a; }
+  .hpbar { width:78px; height:5px; background:#333; border-radius:3px; margin-top:3px; overflow:hidden; }
+  .hpfill { height:100%; transition:width .3s; }
+  #wind { position:fixed; top:52px; left:50%; transform:translateX(-50%);
+    background:rgba(0,0,0,.5); color:#fff; padding:4px 14px; border-radius:14px;
+    font-size:12px; pointer-events:none; text-shadow:1px 1px 0 #000; }
+  #timer { position:fixed; top:8px; left:50%; transform:translateX(-50%);
+    color:#ffd24a; font-size:26px; font-weight:700; pointer-events:none;
+    text-shadow:2px 2px 0 #000; }
+  #controls { position:fixed; bottom:0; left:0; right:0; padding:12px 14px 20px;
+    display:flex; gap:10px; align-items:center; background:linear-gradient(transparent,rgba(0,0,0,.75)); }
+  .btn { -webkit-user-select:none; user-select:none; cursor:pointer;
+    background:rgba(255,255,255,.13); border:2px solid rgba(255,255,255,.28);
+    color:#fff; border-radius:10px; padding:11px 14px; font-size:14px; font-weight:600;
+    text-align:center; flex:1; transition:background .12s; }
+  .btn:active { background:rgba(255,255,255,.3); }
+  .btn.fire { background:rgba(255,80,60,.75); border-color:#ff8a6a; flex:1.5; font-size:16px; }
+  .btn.sel  { background:rgba(74,158,255,.6); border-color:#8cc4ff; }
+  #msg { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+    color:#fff; font-size:22px; font-weight:700; text-align:center;
+    text-shadow:2px 2px 4px #000; pointer-events:none; opacity:0; transition:opacity .3s;
+    line-height:1.5; }
+  #msg.show { opacity:1; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="hud">
+  <div class="team-box blue">
+    <div>🔵 蓝队 <span id="blueAlive">2</span>虫</div>
+    <div class="hpbar"><div class="hpfill" id="blueHp" style="width:100%;background:#4a9eff"></div></div>
+  </div>
+  <div class="team-box red">
+    <div>🔴 红队 <span id="redAlive">2</span>虫</div>
+    <div class="hpbar"><div class="hpfill" id="redHp" style="width:100%;background:#ff4a4a"></div></div>
+  </div>
+</div>
+
+<div id="timer">30</div>
+<div id="wind">风: → 0</div>
+<div id="msg"></div>
+
+<div id="controls">
+  <div class="btn" id="btnLeft">◀</div>
+  <div class="btn" id="btnJump">跳</div>
+  <div class="btn" id="btnRight">▶</div>
+  <div class="btn" id="btnWeapon">🚀 火箭筒</div>
+  <div class="btn fire" id="btnFire">按住蓄力</div>
+</div>
+
+<script type="module" src="./js/main.js"></script>
+</body>
+</html>
